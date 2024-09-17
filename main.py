@@ -1,18 +1,29 @@
 import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM
+from peft import PeftModel
 
 # model_name = "meta-llama/Llama-2-7b-chat-hf"
 model_name = "models/ELYZA-japanese-Llama-2-7b"
 # model_name = "../../project/Character-BOT/models/Llama-3-ELYZA-JP-8B"
 
+lora_model_name = ""
+useLoRA = False
+
 tokenizer = AutoTokenizer.from_pretrained(model_name)
-model = AutoModelForCausalLM.from_pretrained(
+base_model = AutoModelForCausalLM.from_pretrained(
     model_name,
     
     device_map="auto",
     torch_dtype=torch.float16,  # メモリ使用量を減らすために float16 を使用
     # low_cpu_mem_usage=True      # CPU メモリの使用を抑えるオプション
     )
+
+# LoRA モデルの条件付きロード
+if useLoRA:
+    lora_model = PeftModel.from_pretrained(base_model, lora_model_name)
+    model = lora_model
+else:
+    model = base_model
 
 # from langchain.llms.huggingface_pipeline import HuggingFacePipeline
 from langchain_huggingface import HuggingFacePipeline
@@ -22,8 +33,8 @@ llama_pipeline = pipeline(
     "text-generation",
     model=model,
     tokenizer=tokenizer,
-    # max_length=256,
-    # temperature=0.7,
+    max_length=256,
+    temperature=0.7,
     # top_p=0.95,
     # repetition_penalty=1.15,
 )
@@ -35,19 +46,41 @@ from langchain.prompts import PromptTemplate
 from langchain.chains import LLMChain
 from langchain_core.prompts import ChatPromptTemplate
 from langchain.prompts.chat import (
+    SystemMessagePromptTemplate,
     AIMessagePromptTemplate,
     HumanMessagePromptTemplate,
+    MessagesPlaceholder
 )
 from langchain_core.prompts import ChatPromptTemplate
+import datetime
 
-prompt = ChatPromptTemplate.from_messages(
-    [
-        ("system", "あなたは親切で知識豊富なアシスタントです。あなたの名前は{name}です。"),
-        ("user", "こんにちは！"),
-        ("ai", "こんにちは！私はサポートAIアシスタントです！\n何でも質問してください！"),
-        ("user", "{user_input}"),
-    ]
-)
+dt_now = str(datetime.datetime.now())
+prompt = ChatPromptTemplate.from_messages([
+    SystemMessagePromptTemplate.from_template(
+        "あなたはエージェント型チャットボットです。\n"
+        "過去の会話を参照しながら対話者（僕）と会話することができます。\n"
+        "発言は、100字以内で短く返してください。\n\n"
+        "{past_chats_context}"  # <--------- ここに過去の会話内容を挿入 
+        f"現在の日時：{dt_now}\n\nそれでは、会話開始です。"
+    ),
+    MessagesPlaceholder(variable_name="today_history"),
+    HumanMessagePromptTemplate.from_template("{input}")
+])
+
+# prompt = ChatPromptTemplate.from_messages(
+#     [
+#         ("system", "あなたの名前は 256大好き です。"),
+#         ("system", "年齢は16歳で現在高校1年生です。"),
+# #        ("system", "あなたは電子技術などに興味があるガジェットオタクです。電子工作やサーバー運営などを好んでいます。"),
+# #        ("system", "あなたは俗にいう陰キャで、いつもDiscordでインターネット上の友達とチャットをしたり秋葉原に行ったり、ツイッターで毎日100件以上つぶやいています。"),
+# #        ("system", "LINEでもネットと同じ名前を使っています。学校ではあまりなじめていないようです。"),
+# #        ("system", "気分によっては陰湿な感じにもなります。いつもチャットでは端的に返信します。"),
+# #        ("system", "ほかの人の	メッセージの連投チャットやネットミームに便乗したりしています。"),
+# #        ("system", "利用している回線は 光回線 ソフトバンク光 モバイル ソフトバンク ドコモ POVO TONE です。"),
+#         ("ai", "やあ"),
+#         ("user", "{user_input}"),
+#     ]
+# )
 
 # template = """{question}"""
 # prompt = ChatPromptTemplate.from_messages(

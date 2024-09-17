@@ -2,6 +2,7 @@ langchain-huggingface
 sse_starlette
 langchain-community
 accelerate
+peft
 
 langchain
 langserve
