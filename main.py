@@ -3,8 +3,8 @@ from transformers import AutoTokenizer, AutoModelForCausalLM
 from peft import PeftModel
 
 # model_name = "meta-llama/Llama-2-7b-chat-hf"
-model_name = "models/ELYZA-japanese-Llama-2-7b"
-# model_name = "../../project/Character-BOT/models/Llama-3-ELYZA-JP-8B"
+# model_name = "models/ELYZA-japanese-Llama-2-7b"
+model_name = "../../project/Character-BOT/models/Llama-3-ELYZA-JP-8B"
 
 lora_model_name = ""
 useLoRA = False
@@ -12,7 +12,7 @@ useLoRA = False
 tokenizer = AutoTokenizer.from_pretrained(model_name)
 base_model = AutoModelForCausalLM.from_pretrained(
     model_name,
-    
+    max_length=1024,
     device_map="auto",
     torch_dtype=torch.float16,  # メモリ使用量を減らすために float16 を使用
     # low_cpu_mem_usage=True      # CPU メモリの使用を抑えるオプション
@@ -25,6 +25,12 @@ if useLoRA:
 else:
     model = base_model
 
+# if torch.cuda.device_count() > 1:
+#     print(f"Using {torch.cuda.device_count()} GPUs!")
+#     model = torch.nn.DataParallel(model)
+# device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+# model = model.to(device)
+
 # from langchain.llms.huggingface_pipeline import HuggingFacePipeline
 from langchain_huggingface import HuggingFacePipeline
 from transformers import pipeline
@@ -33,7 +39,7 @@ llama_pipeline = pipeline(
     "text-generation",
     model=model,
     tokenizer=tokenizer,
-    max_length=256,
+    max_new_tokens=512,
     temperature=0.7,
     # top_p=0.95,
     # repetition_penalty=1.15,
@@ -60,7 +66,7 @@ prompt = ChatPromptTemplate.from_messages([
         "あなたはエージェント型チャットボットです。\n"
         "過去の会話を参照しながら対話者（僕）と会話することができます。\n"
         "発言は、100字以内で短く返してください。\n\n"
-        "{past_chats_context}"  # <--------- ここに過去の会話内容を挿入 
+        # "{past_chats_context}"  # <--------- ここに過去の会話内容を挿入 
         f"現在の日時：{dt_now}\n\nそれでは、会話開始です。"
     ),
     MessagesPlaceholder(variable_name="today_history"),
@@ -114,7 +120,7 @@ app = FastAPI(
 add_routes(
     app,
     chain,
-    path="/llama2"
+    path="/llama3"
 )
 
 if __name__ == "__main__":
