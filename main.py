@@ -4,9 +4,13 @@ from peft import PeftModel
 
 # model_name = "meta-llama/Llama-2-7b-chat-hf"
 # model_name = "models/ELYZA-japanese-Llama-2-7b"
-model_name = "../../project/Character-BOT/models/Llama-3-ELYZA-JP-8B"
+# model_name = "../../project/Character-BOT/models/Llama-3-ELYZA-JP-8B"
 
-lora_model_name = ""
+model_name = "../text-generation-webui/models/Llama-3-ELYZA-JP-8B"
+# model_name = "../text-generation-webui/models/suzume-llama-3-8B-japanese"
+# model_name = "../text-generation-webui/models/ELYZA-japanese-Llama-2-7b"
+
+lora_model_name = "../text-generation-webui/loras/256-daisuki-mini/"
 useLoRA = False
 
 tokenizer = AutoTokenizer.from_pretrained(model_name)
@@ -25,9 +29,6 @@ if useLoRA:
 else:
     model = base_model
 
-# if torch.cuda.device_count() > 1:
-#     print(f"Using {torch.cuda.device_count()} GPUs!")
-#     model = torch.nn.DataParallel(model)
 # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # model = model.to(device)
 
@@ -40,13 +41,19 @@ llama_pipeline = pipeline(
     model=model,
     tokenizer=tokenizer,
     max_new_tokens=512,
+    max_new_tokens=862,
     temperature=0.7,
-    # top_p=0.95,
-    # repetition_penalty=1.15,
+    top_p=0.1,
+    top_k=40,
+    typical_p=1,
+    min_p=0,
+    repetition_penalty=1.18,
+    frequency_penalty=0,
+    presence_penalty=0,
+    repetition_penalty_range=1024,
 )
 
 llm = HuggingFacePipeline(pipeline=llama_pipeline)
-
 
 from langchain.prompts import PromptTemplate
 from langchain.chains import LLMChain
@@ -60,29 +67,23 @@ from langchain.prompts.chat import (
 from langchain_core.prompts import ChatPromptTemplate
 import datetime
 
-dt_now = str(datetime.datetime.now())
-prompt = ChatPromptTemplate.from_messages([
-    SystemMessagePromptTemplate.from_template(
-        "あなたはエージェント型チャットボットです。\n"
-        "過去の会話を参照しながら対話者（僕）と会話することができます。\n"
-        "発言は、100字以内で短く返してください。\n\n"
-        # "{past_chats_context}"  # <--------- ここに過去の会話内容を挿入 
-        f"現在の日時：{dt_now}\n\nそれでは、会話開始です。"
-    ),
-    MessagesPlaceholder(variable_name="today_history"),
-    HumanMessagePromptTemplate.from_template("{input}")
-])
+# dt_now = str(datetime.datetime.now())
+# prompt = ChatPromptTemplate.from_messages([
+#     SystemMessagePromptTemplate.from_template(
+#         "あなたはエージェント型チャットボットです。\n"
+#         "過去の会話を参照しながら対話者と会話することができます。\n"
+#         "発言は100字以内で短く返してください。\n\n"
+# #         "{past_chats_context}"  # <--------- ここに過去の会話内容を挿入 
+#         f"現在の日時：{dt_now}\n\nそれでは、会話開始です。"
+#     ),
+#     MessagesPlaceholder(variable_name="today_history"),
+#     HumanMessagePromptTemplate.from_template("ユーザー: {input}")
+# ])
 
 # prompt = ChatPromptTemplate.from_messages(
 #     [
 #         ("system", "あなたの名前は 256大好き です。"),
 #         ("system", "年齢は16歳で現在高校1年生です。"),
-# #        ("system", "あなたは電子技術などに興味があるガジェットオタクです。電子工作やサーバー運営などを好んでいます。"),
-# #        ("system", "あなたは俗にいう陰キャで、いつもDiscordでインターネット上の友達とチャットをしたり秋葉原に行ったり、ツイッターで毎日100件以上つぶやいています。"),
-# #        ("system", "LINEでもネットと同じ名前を使っています。学校ではあまりなじめていないようです。"),
-# #        ("system", "気分によっては陰湿な感じにもなります。いつもチャットでは端的に返信します。"),
-# #        ("system", "ほかの人の	メッセージの連投チャットやネットミームに便乗したりしています。"),
-# #        ("system", "利用している回線は 光回線 ソフトバンク光 モバイル ソフトバンク ドコモ POVO TONE です。"),
 #         ("ai", "やあ"),
 #         ("user", "{user_input}"),
 #     ]
@@ -101,12 +102,12 @@ prompt = ChatPromptTemplate.from_messages([
 # {history}
 # ユーザー: {userInput}
 # ボット:"""
-# prompt_template = "ユーザー: {userInput}\nAI:"
+# prompt_template = "Human: {human_input}\nAI:"
 # prompt = PromptTemplate(template=prompt_template, input_variables=["history", "userInput"])
-# prompt = PromptTemplate(template=prompt_template, input_variables=["userInput"])
+# prompt = PromptTemplate(template=prompt_template, input_variables=["human_input"])
 
 # chain = LLMChain(llm=llm, prompt=prompt)
-chain = prompt | llm
+# chain = prompt | llm
 
 from fastapi import FastAPI
 from langserve import add_routes
@@ -119,7 +120,8 @@ app = FastAPI(
 
 add_routes(
     app,
-    chain,
+    # chain,
+    llm,
     path="/llama3"
 )
 
