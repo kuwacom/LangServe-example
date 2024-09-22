@@ -1,11 +1,14 @@
 langchain-huggingface
-sse_starlette
 langchain-community
+langchain
+langserve
+
+duckduckgo-search
+
+sse_starlette
 accelerate
 peft
 
-langchain
-langserve
 transformers
 fastapi
 uvicorn
